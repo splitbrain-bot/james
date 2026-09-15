@@ -26,7 +26,7 @@
   "busy": "Please wait for the current answer.",
   "answerCut": "The answer was cut off at the length limit.",
   "toolNoOutput": "the page returned nothing",
-  "hostGone": "The application window is gone. Open the assistant from it again.",
+  "hostGone": "The application window is gone. Open James from it again.",
   "waitingLong": "Still waiting for the application. Check that its address is in the allowed origins.",
   "storageFailed": "This conversation cannot be stored and will be gone after a reload.",
   "error_unauthorized": "The application did not provide a valid login. Reload it and try again.",
@@ -35,7 +35,7 @@
   "error_cancelled": "The server stopped the turn. Please try again.",
   "error_internal": "The answer could not be finished.",
   "error_stream_ended": "The connection ended before the answer was complete.",
-  "widgetOpen": "Ask the assistant",
-  "widgetBlocked": "The browser blocked the assistant window. Please allow popups for this page.",
-  "widgetConfirmNavigate": "Should the assistant open this page?"
+  "widgetOpen": "Ask James",
+  "widgetBlocked": "The browser blocked James. Please allow popups for this page.",
+  "widgetConfirmNavigate": "May I open this page for you?"
 }

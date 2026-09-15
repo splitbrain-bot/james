@@ -26,7 +26,7 @@
   "busy": "Bitte warten Sie auf die aktuelle Antwort.",
   "answerCut": "Die Antwort wurde an der Längengrenze abgeschnitten.",
   "toolNoOutput": "die Seite hat nichts zurückgegeben",
-  "hostGone": "Das Fenster der Anwendung ist weg. Öffnen Sie den Assistenten von dort aus neu.",
+  "hostGone": "Das Fenster der Anwendung ist weg. Öffnen Sie James von dort aus neu.",
   "waitingLong": "Wartet immer noch auf die Anwendung. Prüfen Sie, ob ihre Adresse in den erlaubten Origins steht.",
   "storageFailed": "Dieses Gespräch kann nicht gespeichert werden und ist nach dem Neuladen weg.",
   "error_unauthorized": "Die Anwendung hat keine gültige Anmeldung geliefert. Laden Sie sie neu und versuchen Sie es erneut.",
@@ -35,7 +35,7 @@
   "error_cancelled": "Der Server hat die Antwort abgebrochen. Bitte versuchen Sie es noch einmal.",
   "error_internal": "Die Antwort konnte nicht fertiggestellt werden.",
   "error_stream_ended": "Die Verbindung endete, bevor die Antwort fertig war.",
-  "widgetOpen": "Den Assistenten fragen",
-  "widgetBlocked": "Der Browser hat das Fenster des Assistenten blockiert. Bitte erlauben Sie Popups für diese Seite.",
-  "widgetConfirmNavigate": "Soll der Assistent diese Seite öffnen?"
+  "widgetOpen": "James fragen",
+  "widgetBlocked": "Der Browser hat James blockiert. Bitte erlauben Sie Popups für diese Seite.",
+  "widgetConfirmNavigate": "Darf ich diese Seite für Sie öffnen?"
 }
