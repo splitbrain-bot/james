@@ -1,0 +1,84 @@
+# Example configuration for james.
+#
+# Every value may come from an environment variable through ${NAME}, or from a
+# file through @path. A relative path is resolved against the directory of this
+# file. Both work together, so "@${SECRET_FILE}" reads the file named by the
+# variable. Changes take effect on restart.
+
+server:
+  # Address to bind. Put a reverse proxy with TLS in front of it.
+  # Defaults to 127.0.0.1:8080.
+  listen: 127.0.0.1:8080
+  # URL prefix all routes live under.
+  base_path: /
+  # Origins of the host pages that may embed the widget and call the API.
+  # At least one origin is required.
+  allowed_origins:
+    - https://app.example.com
+  # Largest chat request body. Defaults to 20 MiB.
+  max_body_bytes: 20971520
+  # Largest image the popup may attach. Defaults to 5 MiB.
+  max_image_bytes: 5242880
+
+auth:
+  # HS256 signing key, shared with the application that issues the tokens.
+  secret: ${JAMES_SECRET}
+
+llm:
+  # anthropic or openai.
+  provider: anthropic
+  # API root. Defaults to the provider's own.
+  base_url: https://api.anthropic.com
+  model: claude-opus-5
+  api_key: ${ANTHROPIC_API_KEY}
+  # Longest answer of one model call. Defaults to 8192.
+  max_tokens: 8192
+
+agent:
+  # The prompt that describes your application, the answer language and the
+  # tone. Written here, or read from a file.
+  system_prompt: "@prompt.md"
+  # Model calls per turn. Defaults to 20.
+  max_tool_steps: 20
+
+# Every section below is optional. A section that is missing switches its tools
+# off.
+tools:
+  # Directories the file tools may read. They never write.
+  files:
+    - path: /var/www/app
+      exclude: [".git", "vendor", "*.env"]
+      # Largest file one read returns. Defaults to 1 MiB.
+      max_file_bytes: 1048576
+
+  # Database connections. A read-only database user is recommended.
+  databases:
+    main:
+      # mysql, postgres or sqlite.
+      driver: mysql
+      dsn: ${DB_DSN}
+      # Rows one query returns. Defaults to 200.
+      max_rows: 200
+      # Run time of one query. Defaults to 10s.
+      timeout: 10s
+
+  # Websites the fetch tool may read.
+  fetch:
+    allow:
+      - docs.example.com
+      - "*.example.com"
+    # Largest response. Defaults to 2 MiB.
+    max_bytes: 2097152
+    # Time one fetch may take. Defaults to 15s.
+    timeout: 15s
+
+  # Tools that run in the host page through the widget. Each name is one
+  # module in web/static/tools.
+  browser:
+    - read_page
+    - read_dom
+    - navigate
+
+log:
+  # text or json, written to standard output.
+  format: text
