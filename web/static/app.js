@@ -1412,7 +1412,10 @@ function bindComposer() {
 	});
 	el.input.addEventListener("input", () => {
 		el.input.style.height = "auto";
-		el.input.style.height = `${Math.min(el.input.scrollHeight, window.innerHeight / 3)}px`;
+		// the height carries the border, which scrollHeight leaves out
+		const border = el.input.offsetHeight - el.input.clientHeight;
+		const grown = Math.min(el.input.scrollHeight + border, window.innerHeight / 3);
+		el.input.style.height = `${grown}px`;
 	});
 	el.input.addEventListener("paste", (event) => {
 		const files = event.clipboardData?.files ?? [];

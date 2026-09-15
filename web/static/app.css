@@ -17,6 +17,7 @@
 	--series-6: #008300;
 	--series-7: #4a3aa7;
 	--series-8: #e34948;
+	--field-height: 42px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,6 +44,11 @@
 
 * {
 	box-sizing: border-box;
+}
+
+/* a hidden element stays hidden, whatever rule below sets a display */
+[hidden] {
+	display: none !important;
 }
 
 html,
@@ -239,6 +245,16 @@ body {
 	fill: currentColor;
 }
 
+/* the buttons beside the input are squares as high as the input */
+.composer-row .icon-button {
+	width: var(--field-height);
+	height: var(--field-height);
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
 .link-button {
 	background: none;
 	border: 0;
@@ -340,7 +356,9 @@ body {
 	border-radius: 8px;
 	padding: 8px;
 	max-height: 40vh;
-	min-height: 38px;
+	/* one line high; the input event grows it, the floor keeps it square */
+	height: var(--field-height);
+	min-height: var(--field-height);
 }
 
 .attachments {
