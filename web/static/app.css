@@ -232,6 +232,13 @@ body {
 	border-color: var(--accent);
 }
 
+.icon-button svg {
+	width: 20px;
+	height: 20px;
+	display: block;
+	fill: currentColor;
+}
+
 .link-button {
 	background: none;
 	border: 0;

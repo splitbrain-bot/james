@@ -1,6 +1,10 @@
 Vendored browser libraries. Downloaded on 2026-09-14 with curl.
 Replace a file by fetching the same path from a newer version.
 
+The icons of the composer buttons live in web/index.html. They are the paths of
+send, stop and image from the Material Design icons, Apache 2.0:
+https://github.com/google/material-design-icons/tree/master/src
+
 marked 18.0.13
   marked.umd.js
   https://cdn.jsdelivr.net/npm/marked@18.0.13/lib/marked.umd.js
