@@ -152,7 +152,8 @@ function isAllowed(origin) {
 
 /**
  * Handle one message from the host page. Only the window that opened the
- * popup is heard, and tool results only from the origin that sent init.
+ * popup is heard, and everything about a tool call only from the origin that
+ * sent init.
  * @param {MessageEvent} event the incoming message
  */
 function onMessage(event) {
@@ -164,8 +165,16 @@ function onMessage(event) {
 		onInit(event.origin, data);
 		return;
 	}
-	if (data.type === "tool_result" && event.origin === state.hostOrigin) {
-		state.pending.get(data.id)?.(data);
+	if (event.origin !== state.hostOrigin) return;
+	if (data.type === "tool_result") {
+		state.pending.get(data.id)?.result(data);
+		return;
+	}
+	if (data.type === "confirm") {
+		const call = state.pending.get(data.call);
+		// a question whose tool call is gone can no longer be answered
+		if (call) call.ask(String(data.id), String(data.text ?? ""));
+		else postToHost({ type: "confirm_result", id: data.id, ok: false });
 	}
 }
 
@@ -572,6 +581,44 @@ function setActivity(line, name, output, isError) {
 		const body = line.querySelector("pre");
 		body.textContent += `\n\n${summarize(output, 1000)}`;
 	}
+}
+
+/**
+ * Build the form of one question the host page asks. It goes into the
+ * conversation, because the popup is the window the user looks at.
+ * @param {string} text the question
+ * @param {function(boolean): void} onAnswer called with the answer
+ * @returns {HTMLFormElement} the form
+ */
+function confirmForm(text, onAnswer) {
+	const form = document.createElement("form");
+	form.className = "ask";
+
+	const question = document.createElement("p");
+	question.className = "ask-text";
+	question.textContent = text;
+
+	const yes = document.createElement("button");
+	yes.type = "submit";
+	yes.className = "icon-button ask-yes";
+	yes.textContent = t("confirmYes");
+
+	const no = document.createElement("button");
+	no.type = "button";
+	no.className = "icon-button";
+	no.textContent = t("confirmNo");
+
+	const buttons = document.createElement("div");
+	buttons.className = "ask-buttons";
+	buttons.append(yes, no);
+	form.append(question, buttons);
+
+	form.addEventListener("submit", (event) => {
+		event.preventDefault();
+		onAnswer(true);
+	});
+	no.addEventListener("click", () => onAnswer(false));
+	return form;
 }
 
 /**
@@ -1278,18 +1325,59 @@ async function runBrowserTools(calls, signal) {
 }
 
 /**
- * Ask the host page to run one browser tool.
+ * Ask the host page to run one browser tool and show the questions the tool
+ * asks along the way.
  * @param {{id: string, name: string, input: *}} call the tool call
  * @param {AbortSignal} signal ends the wait when the user stops the turn
  * @returns {Promise<Object>} the tool_result block for the answer
  */
 function runBrowserTool(call, signal) {
 	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => finish(t("browserToolTimeout"), true), TOOL_TIMEOUT);
+		/** The forms of the questions still on screen, by question ID. */
+		const questions = new Map();
+		let timer = 0;
+
+		/** Start the wait for the host page. */
+		function wait() {
+			timer = setTimeout(() => finish(t("browserToolTimeout"), true), TOOL_TIMEOUT);
+		}
+
+		/** Stop the wait, so a question may stay up as long as the user needs. */
+		function hold() {
+			clearTimeout(timer);
+			timer = 0;
+		}
+
+		/**
+		 * Show one question of the tool in the conversation.
+		 * @param {string} id the question ID
+		 * @param {string} text the question
+		 */
+		function ask(id, text) {
+			hold();
+			const form = confirmForm(text, (ok) => answer(id, ok));
+			questions.set(id, form);
+			el.messages.append(form);
+			scrollDown();
+		}
+
+		/**
+		 * Take one question off the screen and send its answer to the host page.
+		 * @param {string} id the question ID
+		 * @param {boolean} ok true when the user agreed
+		 */
+		function answer(id, ok) {
+			if (!questions.has(id)) return;
+			questions.get(id).remove();
+			questions.delete(id);
+			postToHost({ type: "confirm_result", id, ok });
+			if (!questions.size) wait();
+		}
 
 		/** Forget the call, so a late answer is ignored. */
 		function cleanup() {
-			clearTimeout(timer);
+			for (const id of [...questions.keys()]) answer(id, false);
+			hold();
 			signal.removeEventListener("abort", onAbort);
 			state.pending.delete(call.id);
 		}
@@ -1317,7 +1405,11 @@ function runBrowserTool(call, signal) {
 
 		if (signal.aborted) return onAbort();
 		signal.addEventListener("abort", onAbort);
-		state.pending.set(call.id, (message) => finish(String(message.output ?? ""), message.is_error));
+		state.pending.set(call.id, {
+			result: (message) => finish(String(message.output ?? ""), message.is_error),
+			ask
+		});
+		wait();
 		if (!postToHost({ type: "tool", id: call.id, name: call.name, input: call.input })) {
 			finish(t("hostGone"), true);
 		}

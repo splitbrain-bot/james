@@ -4,6 +4,8 @@
   "stop": "Stopp",
   "reset": "Neues Gespräch",
   "confirmReset": "Dieses Gespräch löschen?",
+  "confirmYes": "Ja",
+  "confirmNo": "Nein",
   "copy": "Antwort kopieren",
   "copied": "Kopiert",
   "attach": "Bilder anhängen",

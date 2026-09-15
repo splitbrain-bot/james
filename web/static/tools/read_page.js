@@ -17,7 +17,7 @@ const MAX_TEXT = 100000;
 /**
  * Read the host page, or the part of it under a selector.
  * @param {{selector: ?string}} input the tool input
- * @param {ToolContext} ctx texts and dialogs of the widget
+ * @param {ToolContext} ctx texts and questions of the widget
  * @returns {string} URL, title and rendered text of the page
  */
 export default function readPage(input, ctx) {

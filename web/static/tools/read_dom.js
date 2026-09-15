@@ -38,7 +38,7 @@ const VOID_TAGS = new Set([
 /**
  * Read the markup of the host page, or of the part of it under a selector.
  * @param {{selector: ?string, depth: ?number, full: ?boolean}} input the tool input
- * @param {ToolContext} ctx texts and dialogs of the widget
+ * @param {ToolContext} ctx texts and questions of the widget
  * @returns {string} indented markup, cut off where the limits are reached
  */
 export default function readDom(input, ctx) {

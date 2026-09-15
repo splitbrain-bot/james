@@ -9,7 +9,8 @@
  * What a tool module gets besides its input.
  * @typedef {Object} ToolContext
  * @property {function(string): string} t the interface text of a key
- * @property {function(string): boolean} confirm asks the user to agree
+ * @property {function(string): Promise<boolean>} confirm asks the user a yes or
+ *     no question in the popup, so it has to be awaited
  * @property {HTMLElement} element the widget element the call came through
  */
 
@@ -145,6 +146,12 @@ class JamesWidget extends HTMLElement {
 	/** The interface texts, empty until they are loaded. */
 	#texts = {};
 
+	/** The questions waiting for an answer from the popup, by question ID. */
+	#asks = new Map();
+
+	/** Counts the questions, so every one of them gets its own ID. */
+	#askCount = 0;
+
 	/** Language of the widget, from the attribute or the browser setting. */
 	get #lang() {
 		return normalizeLang(this.lang || navigator.language || "en");
@@ -251,6 +258,14 @@ class JamesWidget extends HTMLElement {
 			}, event.source);
 			return;
 		}
+		if (data.type === "confirm_result") {
+			const ask = this.#asks.get(data.id);
+			if (ask) {
+				this.#asks.delete(data.id);
+				ask.answer(!!data.ok);
+			}
+			return;
+		}
 		if (data.type === "tool") this.#runTool(data, event.source);
 	}
 
@@ -266,26 +281,65 @@ class JamesWidget extends HTMLElement {
 		try {
 			if (!toolNames.includes(call.name)) throw new Error(`unknown tool: ${call.name}`);
 			const run = await loadTool(call.name);
-			const result = await run(input, this.#toolContext());
+			const result = await run(input, this.#toolContext(call, source));
+			// a module that does not await its question never counts as agreed
+			if (this.#dropAsks(call.id)) throw new Error("the tool did not wait for the answer");
 			const { output, after } = typeof result === "string" ? { output: result } : result ?? {};
 			this.#answer(call.id, String(output ?? ""), false, source);
 			// a tool may leave the page, so it acts once the answer is out
 			if (after) setTimeout(after);
 		} catch (error) {
+			this.#dropAsks(call.id);
 			this.#answer(call.id, error.message || String(error), true, source);
 		}
 	}
 
 	/**
 	 * Build what a tool module gets besides its input.
-	 * @returns {ToolContext} texts, the confirmation dialog and this element
+	 * @param {{id: string}} call the tool call being run
+	 * @param {?Window} source the window that asked
+	 * @returns {ToolContext} texts, the question and this element
 	 */
-	#toolContext() {
+	#toolContext(call, source) {
 		return {
 			t: (key) => this.#t(key),
-			confirm: (text) => window.confirm(text),
+			confirm: (text) => this.#ask(text, call, source),
 			element: this
 		};
+	}
+
+	/**
+	 * Ask the user a yes or no question. The popup shows it, because that is
+	 * the window the user looks at.
+	 * @param {string} text the question
+	 * @param {{id: string}} call the tool call the question belongs to
+	 * @param {?Window} source the window that asked
+	 * @returns {Promise<boolean>} true when the user agreed
+	 */
+	#ask(text, call, source) {
+		if (!source || source.closed) return Promise.resolve(false);
+		const id = `${call.id}#${++this.#askCount}`;
+		return new Promise((answer) => {
+			this.#asks.set(id, { call: call.id, answer });
+			this.#post({ type: "confirm", id, call: call.id, text: String(text) }, source);
+		});
+	}
+
+	/**
+	 * Drop the questions of a tool call that are still waiting, and answer
+	 * them with a no.
+	 * @param {string} call the tool call
+	 * @returns {boolean} true when a question was still waiting
+	 */
+	#dropAsks(call) {
+		let waiting = false;
+		for (const [id, ask] of this.#asks) {
+			if (ask.call !== call) continue;
+			this.#asks.delete(id);
+			ask.answer(false);
+			waiting = true;
+		}
+		return waiting;
 	}
 
 	/**

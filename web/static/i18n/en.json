@@ -4,6 +4,8 @@
   "stop": "Stop",
   "reset": "New conversation",
   "confirmReset": "Delete this conversation?",
+  "confirmYes": "Yes",
+  "confirmNo": "No",
   "copy": "Copy answer",
   "copied": "Copied",
   "attach": "Attach images",

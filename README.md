@@ -323,7 +323,7 @@ that runs it:
 /**
  * Mark a text on the host page.
  * @param {{text: string}} input the tool input
- * @param {ToolContext} ctx texts and dialogs of the widget
+ * @param {ToolContext} ctx texts and questions of the widget
  * @returns {string} what the model is told
  */
 export default function highlight(input, ctx) {
@@ -332,8 +332,9 @@ export default function highlight(input, ctx) {
 ```
 
 Besides its input the function gets a context: `t(key)` gives an interface text,
-`confirm(text)` asks the user to agree, and `element` is the widget element the
-call came through. The function may be asynchronous. What it returns becomes the
+`confirm(text)` asks the user a yes or no question in the popup, and `element`
+is the widget element the call came through. `confirm` answers a promise, so it
+has to be awaited. The function may be asynchronous. What it returns becomes the
 tool result, either a string or an object with an `output` and an `after`
 function, which runs once the result is on its way. `navigate` uses `after` to
 leave the page. An error the function throws becomes a failed tool result with

@@ -15,10 +15,10 @@
 /**
  * Ask the user and then send the host page to a new address.
  * @param {{url: string}} input the tool input
- * @param {ToolContext} ctx texts and dialogs of the widget
- * @returns {{output: string, after: function(): void}} the answer and the move that follows it
+ * @param {ToolContext} ctx texts and questions of the widget
+ * @returns {Promise<{output: string, after: function(): void}>} the answer and the move that follows it
  */
-export default function navigate(input, ctx) {
+export default async function navigate(input, ctx) {
 	let target;
 	try {
 		target = new URL(String(input.url), location.href);
@@ -28,7 +28,7 @@ export default function navigate(input, ctx) {
 	if (target.protocol !== "http:" && target.protocol !== "https:") {
 		throw new Error("only http and https URLs are allowed");
 	}
-	if (!ctx.confirm(`${ctx.t("widgetConfirmNavigate")}\n\n${target.href}`)) {
+	if (!await ctx.confirm(`${ctx.t("widgetConfirmNavigate")}\n\n${target.href}`)) {
 		throw new Error("the user declined");
 	}
 	return {

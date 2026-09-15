@@ -46,6 +46,7 @@ Popup to widget:
 |---|---|---|
 | `ready` | | popup loaded, asks for init |
 | `tool` | `id`, `name`, `input` | run a browser tool |
+| `confirm_result` | `id`, `ok` | the answer to a question |
 
 Widget to popup:
 
@@ -53,6 +54,7 @@ Widget to popup:
 |---|---|---|
 | `init` | `token`, `lang`, `context` | token and settings from the widget element |
 | `tool_result` | `id`, `output`, `is_error` | result of a browser tool; `output` is a string |
+| `confirm` | `id`, `call`, `text` | ask the user a yes or no question |
 
 The popup posts `ready` when it loads, after a `navigate` tool moved the host
 page, and after a turn failed with `unauthorized`. The widget answers every
@@ -67,6 +69,16 @@ The widget loads a module when the tool is first called and passes the input of
 the call to it. A module that answers with an `after` function has that function
 run once the result is posted, so a tool may leave the page. A module that
 throws answers with `is_error` true and the message of the error.
+
+A module that needs the user's agreement calls `ctx.confirm(text)`, which
+answers a promise the module has to await. The widget sends the text to the
+popup, the popup shows it as a form in the conversation, and the answer comes
+back as `confirm_result`. The question is asked there because the popup is the
+window the user looks at. While a question is on screen the popup does not time
+the tool call out. A question whose tool call is already gone counts as a no,
+and so does a question the widget cannot deliver. A tool call that answers
+while a question of its own is still open fails, so a module that forgets to
+await cannot pass an unanswered question as agreement.
 
 `read_page` input: `{"selector": "optional CSS selector"}`. Output: a text
 with the URL, the title and the rendered text of the page or the selected
@@ -88,10 +100,10 @@ markup, so unlike `read_page` it also reaches the text of elements the browser
 does not render, such as an inline script. A selector that is broken or matches
 nothing answers with `is_error` true.
 
-`navigate` input: `{"url": "..."}`. The widget asks the user with a
-confirmation dialog. On yes it sets `location.href` and answers
-`"navigated to <url>"`. On no it answers `"the user declined"` with
-`is_error` true. Only `http:` and `https:` URLs are allowed.
+`navigate` input: `{"url": "..."}`. The widget asks the user in the popup. On
+yes it sets `location.href` and answers `"navigated to <url>"`. On no it
+answers `"the user declined"` with `is_error` true. Only `http:` and `https:`
+URLs are allowed.
 
 ## Chat request
 
