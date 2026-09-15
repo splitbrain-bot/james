@@ -82,14 +82,24 @@ document.querySelector("james-widget").close();
 ```
 
 Button and styles live in a shadow root, so the widget neither inherits nor
-changes the styles of the host page.
+changes the styles of the host page. The one style the host page may set is
+`--james-icon-color`, the colour of the icon on the button, white by default. A
+picture keeps its own colours, so this reaches an SVG icon only:
+
+```css
+james-widget {
+    --james-icon-color: #ffd400;
+}
+```
 
 `lang` picks the language of the interface texts, `de` or `en`. Without it the
 browser setting decides. The language of the answers is not set here, it belongs
 in your system prompt.
 
-`icon` is the address of the picture on the button. It defaults to the icon the
-server ships and is resolved against the host page:
+`icon` is the address of the icon on the button. It defaults to the icon the
+server ships and is resolved against the host page. An SVG file goes into the
+button as markup, so the styles of the widget reach it and it takes the colour
+of the button. Any other file is shown as a picture:
 
 ```html
 <james-widget token="…" icon="/img/assistant.svg"></james-widget>

@@ -41,10 +41,12 @@ sheet.replaceSync(`
 	button {
 		width: 56px;
 		height: 56px;
-		padding: 0;
+		padding: 10px;
+		box-sizing: border-box;
 		border: 0;
 		border-radius: 50%;
 		cursor: pointer;
+		color: var(--james-icon-color, #fff);
 		background: #2a78d6;
 		box-shadow: 0 2px 10px rgba(0, 0, 0, .3);
 		display: flex;
@@ -54,10 +56,17 @@ sheet.replaceSync(`
 	button:hover {
 		background: #256abf;
 	}
+	svg,
 	img {
-		width: 28px;
-		height: 28px;
+		width: 100%;
+		height: 100%;
 		display: block;
+	}
+	svg {
+		fill: currentColor;
+	}
+	img {
+		object-fit: contain;
 	}
 `);
 
@@ -116,6 +125,43 @@ function loadTexts(lang) {
 			.catch(() => ({})));
 	}
 	return translations.get(lang);
+}
+
+/** The icons that were asked for, by address. */
+const icons = new Map();
+
+/**
+ * Read an SVG file into an element. Scripts and event handlers are dropped,
+ * because the file may sit at an address the host page named.
+ * @param {string} text the content of the file
+ * @returns {?SVGElement} the icon, or null when the file holds no SVG
+ */
+function parseIcon(text) {
+	const svg = new DOMParser().parseFromString(text, "image/svg+xml").documentElement;
+	if (!svg || svg.nodeName.toLowerCase() !== "svg") return null;
+	for (const node of svg.querySelectorAll("script")) node.remove();
+	for (const node of [svg, ...svg.querySelectorAll("*")]) {
+		for (const attribute of [...node.attributes]) {
+			if (attribute.name.toLowerCase().startsWith("on")) node.removeAttribute(attribute.name);
+		}
+	}
+	return svg;
+}
+
+/**
+ * Load one icon. Every widget gets a copy of it, so the same file is read
+ * once.
+ * @param {string} url the address of the file
+ * @returns {Promise<?SVGElement>} the icon, or null when it is no readable SVG
+ */
+function loadIcon(url) {
+	if (!icons.has(url)) {
+		icons.set(url, fetch(url)
+			.then((response) => (response.ok ? response.text() : ""))
+			.then(parseIcon)
+			.catch(() => null));
+	}
+	return icons.get(url);
 }
 
 /** The tool modules that were asked for, by name. */
@@ -210,15 +256,30 @@ class JamesWidget extends HTMLElement {
 		const root = this.attachShadow({ mode: "open" });
 		root.adoptedStyleSheets = [sheet];
 
-		const icon = document.createElement("img");
-		icon.src = this.getAttribute("icon") || iconURL;
-		icon.alt = "";
-
 		const button = document.createElement("button");
 		button.type = "button";
-		button.append(icon);
 		button.addEventListener("click", () => this.open());
 		root.append(button);
+		this.#showIcon(button);
+	}
+
+	/**
+	 * Put the icon into the button. It goes in as markup, so the styles of the
+	 * widget reach it. A file that is no readable SVG is shown as a picture.
+	 * @param {HTMLElement} button the button of this widget
+	 * @returns {Promise<void>} resolved once the icon is in the button
+	 */
+	async #showIcon(button) {
+		const url = this.getAttribute("icon") || iconURL;
+		const icon = await loadIcon(url);
+		if (icon) {
+			button.append(icon.cloneNode(true));
+			return;
+		}
+		const picture = document.createElement("img");
+		picture.src = url;
+		picture.alt = "";
+		button.append(picture);
 	}
 
 	/** Put the interface text on the button, as tooltip and accessible name. */
