@@ -1,5 +1,7 @@
 # james
 
+<img src="web/static/icon.svg" alt="" width="120" align="right">
+
 james is a single Go binary that serves a chat agent for one deployed
 application. One YAML file tells it where the source code, the databases and the
 allowed websites are, and it reads them to answer questions about that
