@@ -43,6 +43,21 @@ With this block, set `base_path: /james` in the configuration file. All routes
 live under it: `/` (the popup page), `james.js` (the widget), `static/...`,
 `chat` and `healthz`.
 
+### Docker
+
+Every push to `main` publishes `ghcr.io/splitbrain/james:latest`. The image
+carries the binary alone and reads its configuration from
+`/etc/james/james.yaml`:
+
+```sh
+docker run -v ./conf:/etc/james:ro -p 8080:8080 ghcr.io/splitbrain/james
+```
+
+Two settings differ inside a container: `server.listen` has to be `0.0.0.0:8080`
+because the default address is reachable from the container only, and the
+container needs a user that may read the files and the database of your
+application. The image runs as `65534` until the deployment says otherwise.
+
 ## Integration
 
 The host application loads the widget module and adds one element, filled by
@@ -264,7 +279,10 @@ came from. To update one, fetch the same path from the newer version and note
 the new version in that file.
 
 `.github/workflows/ci.yml` runs the format check, `go vet`, the tests and a
-static build on every push to `main` and on every pull request.
+static build on every push to `main` and on every pull request. It then builds
+the image from the `Dockerfile`. On `main` it also pushes the image to GHCR and
+asks watchtower to pull it, which needs the repository variable
+`WATCHTOWER_URL` and the secret `WATCHTOWER_HTTP_API_TOKEN`.
 
 ### Adding a browser tool
 
