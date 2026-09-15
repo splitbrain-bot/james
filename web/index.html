@@ -27,6 +27,15 @@
     </div>
   </form>
   <input type="file" id="files" accept="image/*" multiple hidden>
+  <dialog id="ask" class="ask">
+    <form method="dialog">
+      <p id="ask-text" class="ask-text"></p>
+      <div class="ask-buttons">
+        <button value="yes" id="ask-yes" class="icon-button ask-yes"></button>
+        <button value="no" id="ask-no" class="icon-button"></button>
+      </div>
+    </form>
+  </dialog>
 </main>
 <script src="static/vendor/marked.umd.js"></script>
 <script src="static/vendor/purify.min.js"></script>

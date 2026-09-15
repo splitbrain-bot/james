@@ -68,7 +68,11 @@ const el = {
 	attachments: document.getElementById("attachments"),
 	send: document.getElementById("send"),
 	stop: document.getElementById("stop"),
-	reset: document.getElementById("reset")
+	reset: document.getElementById("reset"),
+	ask: document.getElementById("ask"),
+	askText: document.getElementById("ask-text"),
+	askYes: document.getElementById("ask-yes"),
+	askNo: document.getElementById("ask-no")
 };
 
 // ---------------------------------------------------------------- texts
@@ -126,6 +130,8 @@ function applyTexts() {
 	label(el.stop, t("stop"));
 	label(el.attach, t("attach"));
 	el.reset.textContent = t("reset");
+	el.askYes.textContent = t("confirmYes");
+	el.askNo.textContent = t("confirmNo");
 }
 
 /**
@@ -584,41 +590,25 @@ function setActivity(line, name, output, isError) {
 }
 
 /**
- * Build the form of one question the host page asks. It goes into the
- * conversation, because the popup is the window the user looks at.
+ * Ask the user a yes or no question in the sheet at the bottom of the popup.
+ * A question that still stands is answered with a no first, so only one is
+ * ever on screen. Anything but a yes counts as a no, the escape key included.
  * @param {string} text the question
- * @param {function(boolean): void} onAnswer called with the answer
- * @returns {HTMLFormElement} the form
+ * @returns {Promise<boolean>} true when the user agreed
  */
-function confirmForm(text, onAnswer) {
-	const form = document.createElement("form");
-	form.className = "ask";
-
-	const question = document.createElement("p");
-	question.className = "ask-text";
-	question.textContent = text;
-
-	const yes = document.createElement("button");
-	yes.type = "submit";
-	yes.className = "icon-button ask-yes";
-	yes.textContent = t("confirmYes");
-
-	const no = document.createElement("button");
-	no.type = "button";
-	no.className = "icon-button";
-	no.textContent = t("confirmNo");
-
-	const buttons = document.createElement("div");
-	buttons.className = "ask-buttons";
-	buttons.append(yes, no);
-	form.append(question, buttons);
-
-	form.addEventListener("submit", (event) => {
-		event.preventDefault();
-		onAnswer(true);
+function ask(text) {
+	el.ask.returnValue = "";
+	closeAsk();
+	el.askText.textContent = text;
+	el.ask.showModal();
+	return new Promise((answer) => {
+		el.ask.addEventListener("close", () => answer(el.ask.returnValue === "yes"), { once: true });
 	});
-	no.addEventListener("click", () => onAnswer(false));
-	return form;
+}
+
+/** Take back the question on screen, which answers it with a no. */
+function closeAsk() {
+	if (el.ask.open) el.ask.close("no");
 }
 
 /**
@@ -1333,8 +1323,8 @@ async function runBrowserTools(calls, signal) {
  */
 function runBrowserTool(call, signal) {
 	return new Promise((resolve, reject) => {
-		/** The forms of the questions still on screen, by question ID. */
-		const questions = new Map();
+		/** True while a question of this call stands on screen. */
+		let standing = false;
 		let timer = 0;
 
 		/** Start the wait for the host page. */
@@ -1342,41 +1332,31 @@ function runBrowserTool(call, signal) {
 			timer = setTimeout(() => finish(t("browserToolTimeout"), true), TOOL_TIMEOUT);
 		}
 
-		/** Stop the wait, so a question may stay up as long as the user needs. */
+		/** Stop the wait, so a question may stand as long as the user needs. */
 		function hold() {
 			clearTimeout(timer);
 			timer = 0;
 		}
 
 		/**
-		 * Show one question of the tool in the conversation.
+		 * Put one question of the tool to the user and answer the host page.
 		 * @param {string} id the question ID
 		 * @param {string} text the question
+		 * @returns {Promise<void>} resolved once the answer is on its way
 		 */
-		function ask(id, text) {
+		async function question(id, text) {
 			hold();
-			const form = confirmForm(text, (ok) => answer(id, ok));
-			questions.set(id, form);
-			el.messages.append(form);
-			scrollDown();
-		}
-
-		/**
-		 * Take one question off the screen and send its answer to the host page.
-		 * @param {string} id the question ID
-		 * @param {boolean} ok true when the user agreed
-		 */
-		function answer(id, ok) {
-			if (!questions.has(id)) return;
-			questions.get(id).remove();
-			questions.delete(id);
+			standing = true;
+			const ok = await ask(text);
+			standing = false;
 			postToHost({ type: "confirm_result", id, ok });
-			if (!questions.size) wait();
+			// a call that ended in the meantime waits for nothing any more
+			if (state.pending.has(call.id)) wait();
 		}
 
 		/** Forget the call, so a late answer is ignored. */
 		function cleanup() {
-			for (const id of [...questions.keys()]) answer(id, false);
+			if (standing) closeAsk();
 			hold();
 			signal.removeEventListener("abort", onAbort);
 			state.pending.delete(call.id);
@@ -1407,7 +1387,7 @@ function runBrowserTool(call, signal) {
 		signal.addEventListener("abort", onAbort);
 		state.pending.set(call.id, {
 			result: (message) => finish(String(message.output ?? ""), message.is_error),
-			ask
+			ask: question
 		});
 		wait();
 		if (!postToHost({ type: "tool", id: call.id, name: call.name, input: call.input })) {
@@ -1447,8 +1427,8 @@ function bindComposer() {
 		el.files.value = "";
 	});
 	el.stop.addEventListener("click", () => state.abort?.abort());
-	el.reset.addEventListener("click", () => {
-		if (window.confirm(t("confirmReset"))) resetHistory();
+	el.reset.addEventListener("click", async () => {
+		if (await ask(t("confirmReset"))) resetHistory();
 	});
 	window.addEventListener("resize", () => {
 		for (const chart of state.charts) {

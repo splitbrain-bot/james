@@ -257,15 +257,30 @@ body {
 	padding: 0 2px;
 }
 
-/* Questions of a browser tool */
+/* Questions */
 
 .ask {
-	border: 1px solid var(--accent);
-	border-radius: 8px;
-	padding: 8px 12px;
+	margin: auto auto 0;
+	width: 100%;
+	max-width: none;
+	max-height: 80%;
+	padding: 12px;
+	border: 0;
+	border-top: 1px solid var(--border);
+	border-radius: 12px 12px 0 0;
+	color: var(--text);
+	background: var(--surface-raised);
+	box-shadow: 0 -2px 12px rgba(0, 0, 0, .25);
+}
+
+.ask::backdrop {
+	background: rgba(0, 0, 0, .4);
+}
+
+.ask form {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 10px;
 }
 
 .ask-text {

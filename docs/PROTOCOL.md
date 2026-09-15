@@ -78,8 +78,8 @@ throws answers with `is_error` true and the message of the error.
 
 A module that needs the user's agreement calls `ctx.confirm(text)`, which
 answers a promise the module has to await. The widget sends the text to the
-popup, the popup shows it as a form in the conversation, and the answer comes
-back as `confirm_result`. The question is asked there because the popup is the
+popup, the popup asks the user in a sheet at the bottom of its window, and the
+answer comes back as `confirm_result`. The question is asked there because the popup is the
 window the user looks at. While a question is on screen the popup does not time
 the tool call out. A question whose tool call is already gone counts as a no,
 and so does a question the widget cannot deliver. A tool call that answers
