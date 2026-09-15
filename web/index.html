@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<title>james</title>
+<!-- The popup settings, written here by the server. -->
+<script type="application/json" id="james-config">__JAMES_CONFIG__</script>
+<link rel="stylesheet" href="static/app.css">
+</head>
+<body>
+<main id="app">
+  <div id="messages" class="messages" role="log" aria-live="polite"></div>
+  <p id="note" class="note" role="status" hidden></p>
+  <form id="composer" class="composer" hidden>
+    <div id="attachments" class="attachments" hidden></div>
+    <div class="composer-row">
+      <button type="button" id="attach" class="icon-button" title="">+</button>
+      <textarea id="input" rows="1"></textarea>
+      <button type="submit" id="send" class="icon-button">&#9650;</button>
+      <button type="button" id="stop" class="icon-button" hidden>&#9632;</button>
+    </div>
+    <div class="composer-row secondary">
+      <button type="button" id="reset" class="link-button"></button>
+    </div>
+  </form>
+  <input type="file" id="files" accept="image/*" multiple hidden>
+</main>
+<script src="static/vendor/marked.umd.js"></script>
+<script src="static/vendor/purify.min.js"></script>
+<script type="module" src="static/app.js"></script>
+</body>
+</html>
