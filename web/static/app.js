@@ -634,6 +634,19 @@ function summarize(value, max) {
 	return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+/**
+ * Build the sign that the popup waits for an answer. It carries no text,
+ * because the conversation is a live region and dots read as nothing.
+ * @returns {HTMLElement} the three dots
+ */
+function thinking() {
+	const dots = document.createElement("div");
+	dots.className = "thinking";
+	dots.setAttribute("aria-hidden", "true");
+	for (let i = 0; i < 3; i++) dots.append(document.createElement("span"));
+	return dots;
+}
+
 /** Scroll the conversation to its end. */
 function scrollDown() {
 	el.messages.scrollTop = el.messages.scrollHeight;
@@ -1151,7 +1164,10 @@ async function step(controller) {
 async function streamTurn(signal) {
 	const live = document.createElement("div");
 	live.className = "turn assistant";
-	el.messages.append(live);
+	// the dots stand below the turn, so they stay under what arrives
+	const dots = thinking();
+	el.messages.append(live, dots);
+	scrollDown();
 
 	const lines = new Map();
 	const answer = { box: null, text: "", segment: "", failed: false, frame: 0 };
@@ -1180,6 +1196,7 @@ async function streamTurn(signal) {
 		}
 	} finally {
 		live.remove();
+		dots.remove();
 	}
 
 	if (!result && !answer.failed) {
