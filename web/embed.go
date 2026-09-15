@@ -3,7 +3,8 @@ package web
 
 import "embed"
 
-// Files holds the popup page, the widget script and the static assets.
+// Files holds the popup page, the demo page, the widget script and the static
+// assets.
 //
-//go:embed index.html james.js static
+//go:embed index.html demo.html james.js static
 var Files embed.FS

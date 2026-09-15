@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>james demo</title>
+<style>
+	body {
+		margin: 0 auto;
+		padding: 2rem 1rem 6rem;
+		max-width: 44rem;
+		font: 16px/1.6 system-ui, sans-serif;
+		color: #222;
+	}
+	code {
+		background: #eee;
+		padding: .1em .3em;
+		border-radius: 3px;
+	}
+</style>
+<script type="module" src="james.js"></script>
+</head>
+<body>
+<h1>james demo</h1>
+
+<p>This page stands in for the host application. It embeds the widget the same
+way a real page does, so the button, the popup, the token and the browser tools
+all run on their usual path.</p>
+
+<p>The token in the element below is signed by this server and expires after an
+hour. Reload the page for a fresh one.</p>
+
+<h2 id="tools">Something to look at</h2>
+
+<p>The browser tools read this page. Ask the agent what it sees here, how the
+page is built, or let it open the <a href="healthz">health check</a>.</p>
+
+<ul>
+	<li>Order 42, Anna Beispiel, 3 items, shipped</li>
+	<li>Order 43, Bert Beispiel, 1 item, open</li>
+</ul>
+
+<p>The context object below reaches the system prompt as text, so the agent
+knows this is user <code>dev</code> on page <code>/demo</code>.</p>
+
+<james-widget token="__JAMES_TOKEN__"
+              context='{"user":"dev","page":"/demo"}'></james-widget>
+</body>
+</html>

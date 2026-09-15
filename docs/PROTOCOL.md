@@ -13,6 +13,7 @@ All routes live under `server.base_path`.
 | `GET static/...` | CSS, JS, vendored libraries, `icon.svg`, `i18n/*.json` |
 | `POST chat` | one turn, answered as Server-Sent Events |
 | `GET healthz` | returns `ok` |
+| `GET demo` | the demo host page, served with `-dev` only |
 
 `james.js` and everything under `static/` answer with
 `Access-Control-Allow-Origin: *`, because the widget runs on the host page and

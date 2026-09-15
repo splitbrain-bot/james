@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"james/internal/agent"
+	"james/internal/auth"
 	"james/internal/config"
 	"james/web"
 )
@@ -26,6 +27,19 @@ const configPlaceholder = "__JAMES_CONFIG__"
 // toolsPlaceholder is the text in the widget script that the server replaces
 // with the names of the configured browser tools.
 const toolsPlaceholder = "__JAMES_TOOLS__"
+
+// tokenPlaceholder is the text in the demo page that the server replaces with
+// a signed token.
+const tokenPlaceholder = "__JAMES_TOKEN__"
+
+// demoUser is the subject of the token the demo page carries.
+const demoUser = "dev"
+
+// demoName is the display name of the token the demo page carries.
+const demoName = "Developer"
+
+// demoTokenLifetime is how long the token of the demo page stays valid.
+const demoTokenLifetime = time.Hour
 
 // staticCacheControl lets the browser keep the static assets for an hour, so
 // the large chart and diagram libraries are not fetched on every popup.
@@ -49,6 +63,9 @@ type server struct {
 	// script is the widget script the host page embeds, with the browser tool
 	// names filled in.
 	script []byte
+	// demo is the demo host page, still holding the token placeholder. It is
+	// empty unless the server runs in development mode.
+	demo []byte
 }
 
 // pageConfig is the settings the server writes into the popup page.
@@ -61,8 +78,9 @@ type pageConfig struct {
 }
 
 // New builds the HTTP handler for all routes. It reads the popup page and the
-// widget script into memory and fails when the embedded files are missing.
-func New(cfg *config.Config, ag *agent.Agent, logger *slog.Logger) (http.Handler, error) {
+// widget script into memory and fails when the embedded files are missing. In
+// development mode it also serves the demo host page.
+func New(cfg *config.Config, ag *agent.Agent, logger *slog.Logger, dev bool) (http.Handler, error) {
 	s := &server{
 		cfg:    cfg,
 		agent:  ag,
@@ -97,6 +115,14 @@ func New(cfg *config.Config, ag *agent.Agent, logger *slog.Logger) (http.Handler
 	mux.HandleFunc("OPTIONS "+prefix+"/chat", s.handlePreflight)
 	if prefix != "" {
 		mux.Handle("GET "+prefix, http.RedirectHandler(prefix+"/", http.StatusMovedPermanently))
+	}
+	if dev {
+		demo, err := web.Files.ReadFile("demo.html")
+		if err != nil {
+			return nil, fmt.Errorf("cannot read the demo page: %w", err)
+		}
+		s.demo = demo
+		mux.HandleFunc("GET "+prefix+"/demo", s.handleDemo)
 	}
 	return mux, nil
 }
@@ -137,6 +163,19 @@ func (s *server) handleScript(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Write(s.script)
+}
+
+// handleDemo serves the demo host page, carrying a token signed with the
+// configured secret. The page is not cached, because the token runs out.
+func (s *server) handleDemo(w http.ResponseWriter, r *http.Request) {
+	token := auth.Sign(auth.Claims{
+		Sub:  demoUser,
+		Name: demoName,
+		Exp:  time.Now().Add(demoTokenLifetime),
+	}, s.secret)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(bytes.ReplaceAll(s.demo, []byte(tokenPlaceholder), []byte(token)))
 }
 
 // handleHealth answers that the server is up.
