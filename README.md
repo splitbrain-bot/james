@@ -96,6 +96,14 @@ james-widget {
 browser setting decides. The language of the answers is not set here, it belongs
 in your system prompt.
 
+`corner` puts the button in one of the four corners of the window:
+`bottom-right`, which is the default, `bottom-left`, `top-right` or
+`top-left`. Every corner keeps a distance of 20 pixels.
+
+```html
+<james-widget token="…" corner="bottom-left"></james-widget>
+```
+
 `icon` is the address of the icon on the button. It defaults to the icon the
 server ships and is resolved against the host page. An SVG file goes into the
 button as markup, so the styles of the widget reach it and it takes the colour

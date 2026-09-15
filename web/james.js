@@ -34,9 +34,17 @@ const sheet = new CSSStyleSheet();
 sheet.replaceSync(`
 	:host {
 		position: fixed;
-		right: 20px;
-		bottom: 20px;
+		inset: auto 20px 20px auto;
 		z-index: 2147483000;
+	}
+	:host([corner="bottom-left"]) {
+		inset: auto auto 20px 20px;
+	}
+	:host([corner="top-right"]) {
+		inset: 20px 20px auto auto;
+	}
+	:host([corner="top-left"]) {
+		inset: 20px auto auto 20px;
 	}
 	button {
 		width: 56px;
