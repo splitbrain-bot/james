@@ -4,6 +4,8 @@ package server
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -41,9 +43,17 @@ const demoName = "Developer"
 // demoTokenLifetime is how long the token of the demo page stays valid.
 const demoTokenLifetime = time.Hour
 
-// staticCacheControl lets the browser keep the static assets for an hour, so
-// the large chart and diagram libraries are not fetched on every popup.
-const staticCacheControl = "public, max-age=3600"
+// vendorCacheControl lets the browser keep the vendored libraries for an
+// hour, so the large chart and diagram files are not fetched on every popup.
+const vendorCacheControl = "public, max-age=3600"
+
+// staticCacheControl makes the browser ask about the widget's own assets on
+// every load. They and james.js belong to one version, so a kept file must not
+// outlive the script that came with it.
+const staticCacheControl = "no-cache"
+
+// vendorPrefix is where the vendored libraries sit below static.
+const vendorPrefix = "vendor/"
 
 // bodyReadTimeout caps how long a client may take to send its request body.
 const bodyReadTimeout = 30 * time.Second
@@ -63,6 +73,8 @@ type server struct {
 	// script is the widget script the host page embeds, with the browser tool
 	// names filled in.
 	script []byte
+	// scriptTag names the content of the script.
+	scriptTag string
 	// demo is the demo host page, still holding the token placeholder. It is
 	// empty unless the server runs in development mode.
 	demo []byte
@@ -98,9 +110,14 @@ func New(cfg *config.Config, ag *agent.Agent, logger *slog.Logger, dev bool) (ht
 		return nil, fmt.Errorf("cannot read the widget script: %w", err)
 	}
 	s.script = bytes.ReplaceAll(script, []byte(toolsPlaceholder), []byte(strings.Join(cfg.Tools.Browser, ",")))
+	s.scriptTag = etag(s.script)
 	static, err := fs.Sub(web.Files, "static")
 	if err != nil {
 		return nil, fmt.Errorf("cannot open the static files: %w", err)
+	}
+	tags, err := staticETags(static)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read the static files: %w", err)
 	}
 
 	// The trimmed prefix keeps the route patterns free of double slashes.
@@ -109,7 +126,7 @@ func New(cfg *config.Config, ag *agent.Agent, logger *slog.Logger, dev bool) (ht
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+prefix+"/{$}", s.handleIndex)
 	mux.HandleFunc("GET "+prefix+"/james.js", s.handleScript)
-	mux.Handle("GET "+prefix+"/static/", http.StripPrefix(prefix+"/static/", staticFiles(http.FileServerFS(static))))
+	mux.Handle("GET "+prefix+"/static/", http.StripPrefix(prefix+"/static/", staticFiles(tags, http.FileServerFS(static))))
 	mux.HandleFunc("GET "+prefix+"/healthz", s.handleHealth)
 	mux.HandleFunc("POST "+prefix+"/chat", s.handleChat)
 	mux.HandleFunc("OPTIONS "+prefix+"/chat", s.handlePreflight)
@@ -157,12 +174,15 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Write(s.index)
 }
 
-// handleScript serves the widget script. Any host page may load it.
+// handleScript serves the widget script. Any host page may load it. The
+// answer names its content, so a host page that kept the script gets no body.
 func (s *server) handleScript(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Write(s.script)
+	w.Header().Set("Etag", s.scriptTag)
+	// the script is built at startup and has no date, so the tag answers alone
+	http.ServeContent(w, r, "james.js", time.Time{}, bytes.NewReader(s.script))
 }
 
 // handleDemo serves the demo host page, carrying a token signed with the
@@ -224,18 +244,56 @@ func isOwnOrigin(origin string, r *http.Request) bool {
 	return parsed.Host != "" && parsed.Host == r.Host
 }
 
-// staticFiles serves the static assets with a cache header. Any host page may
-// read them, because the widget loads its icon and its interface texts from
-// here. It answers 404 for directory paths so the file server never lists a
-// directory.
-func staticFiles(next http.Handler) http.Handler {
+// etag names the content of a file, so a browser can ask whether the copy it
+// kept is still the one the server has.
+func etag(content []byte) string {
+	sum := sha256.Sum256(content)
+	return `"` + hex.EncodeToString(sum[:16]) + `"`
+}
+
+// staticETags names the content of every static file. The embedded files have
+// no modification date, so the tag is the only thing a browser can ask about.
+// The key is the path below static, the way the file server sees it.
+func staticETags(files fs.FS) (map[string]string, error) {
+	tags := make(map[string]string)
+	err := fs.WalkDir(files, ".", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		content, err := fs.ReadFile(files, path)
+		if err != nil {
+			return err
+		}
+		tags[path] = etag(content)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return tags, nil
+}
+
+// staticFiles serves the static assets with a cache header, a long one for the
+// vendored libraries, and with the tag of their content, so a file the browser
+// kept is answered with 304. Any host page may read them, because the widget
+// loads its icon and its interface texts from here. It answers 404 for
+// directory paths so the file server never lists a directory.
+func staticFiles(tags map[string]string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/") {
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Cache-Control", staticCacheControl)
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		cache := staticCacheControl
+		if strings.HasPrefix(path, vendorPrefix) {
+			cache = vendorCacheControl
+		}
+		w.Header().Set("Cache-Control", cache)
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if tag := tags[path]; tag != "" {
+			w.Header().Set("Etag", tag)
+		}
 		next.ServeHTTP(w, r)
 	})
 }

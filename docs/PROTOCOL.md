@@ -20,6 +20,12 @@ All routes live under `server.base_path`.
 reads its icon and its interface texts from there. `chat` only allows the
 origins from `server.allowed_origins`.
 
+The browser may keep the vendored libraries under `static/vendor` for an hour.
+Everything else is asked about on every load, so a new server version never
+meets a kept file of an older one. `james.js` and every answer under `static/`
+carry an `ETag` of their content, so a question about an unchanged file is
+answered with 304 and no body.
+
 ## Token
 
 A JWT signed with HS256 and the shared secret. Claims:

@@ -563,6 +563,55 @@ func TestStaticFiles(t *testing.T) {
 	}
 }
 
+// TestStaticCacheHeaders checks that the browser asks about the widget's own
+// assets every time, while it may keep the vendored libraries.
+func TestStaticCacheHeaders(t *testing.T) {
+	handler := newTestServer(t, "/", &fakeProvider{text: "hello"})
+	cases := map[string]string{
+		"/static/tools/navigate.js":    "no-cache",
+		"/static/app.css":              "no-cache",
+		"/static/i18n/en.json":         "no-cache",
+		"/static/vendor/marked.umd.js": "public, max-age=3600",
+	}
+	for path, want := range cases {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s = %d", path, rec.Code)
+		}
+		if got := rec.Header().Get("Cache-Control"); got != want {
+			t.Errorf("cache of %s = %q, want %q", path, got, want)
+		}
+	}
+}
+
+// TestETags checks that the widget script and a static file carry the tag of
+// their content and that a browser asking with that tag gets no body.
+func TestETags(t *testing.T) {
+	handler := newTestServer(t, "/", &fakeProvider{text: "hello"})
+	for _, path := range []string{"/james.js", "/static/app.css"} {
+		t.Run(path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+			tag := rec.Header().Get("Etag")
+			if rec.Code != http.StatusOK || tag == "" {
+				t.Fatalf("GET %s = %d, tag %q", path, rec.Code, tag)
+			}
+
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req.Header.Set("If-None-Match", tag)
+			again := httptest.NewRecorder()
+			handler.ServeHTTP(again, req)
+			if again.Code != http.StatusNotModified {
+				t.Fatalf("GET %s with the tag = %d, want 304", path, again.Code)
+			}
+			if again.Body.Len() != 0 {
+				t.Errorf("the answer carried %d bytes", again.Body.Len())
+			}
+		})
+	}
+}
+
 // TestChatOverRealConnection covers a turn over a real listener, where the HTTP
 // server closes an unread request body once the response starts.
 func TestChatOverRealConnection(t *testing.T) {
