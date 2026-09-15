@@ -22,7 +22,8 @@ Copy `james.example.yaml` to `james.yaml`, copy `prompt.example.md` to
 ```
 
 `-config` defaults to `james.yaml`. `./james -version` prints the version and
-exits.
+exits. `./james -dev` adds the demo host page described under
+[Development](#trying-it-out), for trying james out without a host application.
 
 james speaks plain HTTP and binds to `127.0.0.1` by default. Put a reverse proxy
 with TLS in front of it. The proxy path and `server.base_path` have to match:
@@ -265,6 +266,24 @@ the new version in that file.
 
 `.github/workflows/ci.yml` runs the format check, `go vet`, the tests and a
 static build on every push to `main` and on every pull request.
+
+### Trying it out
+
+`-dev` serves a demo host page at `<base_path>/demo`:
+
+```sh
+./james -config james.yaml -dev
+```
+
+The page stands in for your application. It embeds the widget the way the
+[Integration](#integration) section describes, so the button, the popup, the
+token and the browser tools all run on their usual path, and it holds a bit of
+text for the browser tools to read. The token in the page is signed by the
+server itself with `auth.secret` and is valid for an hour; reloading the page
+mints a fresh one.
+
+The route exists only with `-dev`, because anyone who can reach it gets a token
+that the chat route accepts.
 
 ### Adding a browser tool
 

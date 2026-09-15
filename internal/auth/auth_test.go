@@ -128,3 +128,24 @@ func TestVerifyRejects(t *testing.T) {
 		})
 	}
 }
+
+// TestSignRoundTrip checks that Verify accepts a token Sign built and reads
+// back its claims.
+func TestSignRoundTrip(t *testing.T) {
+	now := time.Unix(1_000_000, 0)
+	token := Sign(Claims{Sub: "u1", Name: "Anna", Exp: now.Add(time.Hour)}, secret)
+
+	claims, err := Verify(token, secret, now)
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if claims.Sub != "u1" || claims.Name != "Anna" {
+		t.Errorf("claims = %+v", claims)
+	}
+	if !claims.Exp.Equal(now.Add(time.Hour)) {
+		t.Errorf("exp = %s", claims.Exp)
+	}
+	if _, err := Verify(token, []byte("another key"), now); !errors.Is(err, ErrInvalid) {
+		t.Errorf("another key: err = %v", err)
+	}
+}

@@ -11,11 +11,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"james/internal/agent"
+	"james/internal/auth"
 	"james/internal/config"
 	"james/internal/llm"
 	"james/web"
@@ -141,10 +143,8 @@ func token(t *testing.T, sub string, exp time.Time) string {
 	return signed + "." + encode(mac.Sum(nil))
 }
 
-// newTestServer builds a handler with the given base path and provider. The
-// agent has the given tools.
-func newTestServer(t *testing.T, basePath string, provider llm.Provider, tools ...agent.Tool) http.Handler {
-	t.Helper()
+// testConfig builds the configuration the test servers run with.
+func testConfig(basePath string) *config.Config {
 	cfg := &config.Config{}
 	cfg.Server.BasePath = basePath
 	cfg.Server.AllowedOrigins = []string{"https://app.example.com"}
@@ -152,9 +152,23 @@ func newTestServer(t *testing.T, basePath string, provider llm.Provider, tools .
 	cfg.Server.MaxImageBytes = 1024
 	cfg.Auth.Secret = testSecret
 	cfg.Tools.Browser = []string{"read_page"}
+	return cfg
+}
+
+// newTestServer builds a handler with the given base path and provider. The
+// agent has the given tools.
+func newTestServer(t *testing.T, basePath string, provider llm.Provider, tools ...agent.Tool) http.Handler {
+	t.Helper()
+	return newServer(t, testConfig(basePath), false, provider, tools...)
+}
+
+// newServer builds a handler for the given configuration, in development mode
+// when dev is true.
+func newServer(t *testing.T, cfg *config.Config, dev bool, provider llm.Provider, tools ...agent.Tool) http.Handler {
+	t.Helper()
 	ag := &agent.Agent{Provider: provider, SystemPrompt: "be nice", Tools: tools, MaxSteps: 3, MaxTokens: 100}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	handler, err := New(cfg, ag, logger)
+	handler, err := New(cfg, ag, logger, dev)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -616,4 +630,44 @@ func TestStaticStaysInStaticDir(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("GET /static/%%2e%%2e/james.js = %d, want 404", rec.Code)
 	}
+}
+
+// TestDemoPage covers the demo host page of the development mode: it exists
+// only there and carries a token the server accepts.
+func TestDemoPage(t *testing.T) {
+	t.Run("off by default", func(t *testing.T) {
+		handler := newTestServer(t, "/", &fakeProvider{text: "hello"})
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/demo", nil))
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("status = %d", rec.Code)
+		}
+	})
+
+	t.Run("token is valid", func(t *testing.T) {
+		handler := newServer(t, testConfig("/agent"), true, &fakeProvider{text: "hello"})
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/agent/demo", nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d", rec.Code)
+		}
+		if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+			t.Errorf("cache control = %q", got)
+		}
+		body := rec.Body.String()
+		if strings.Contains(body, tokenPlaceholder) {
+			t.Fatal("the placeholder was not replaced")
+		}
+		match := regexp.MustCompile(`token="([^"]+)"`).FindStringSubmatch(body)
+		if match == nil {
+			t.Fatalf("no token in %q", body)
+		}
+		claims, err := auth.Verify(match[1], []byte(testSecret), time.Now())
+		if err != nil {
+			t.Fatalf("Verify: %v", err)
+		}
+		if claims.Sub != demoUser || claims.Name != demoName {
+			t.Errorf("claims = %+v", claims)
+		}
+	})
 }

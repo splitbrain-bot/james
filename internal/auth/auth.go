@@ -106,3 +106,31 @@ func Verify(token string, secret []byte, now time.Time) (Claims, error) {
 	}
 	return claims, nil
 }
+
+// signHeader is the fixed header of a signed token.
+const signHeader = `{"alg":"HS256","typ":"JWT"}`
+
+// signPayload is the payload Sign writes. A token without a display name
+// carries no name claim.
+type signPayload struct {
+	// Sub is the user ID.
+	Sub string `json:"sub"`
+	// Name is the display name.
+	Name string `json:"name,omitempty"`
+	// Exp is the expiry as Unix seconds.
+	Exp int64 `json:"exp"`
+}
+
+// Sign builds a token that carries claims and signs it with secret.
+func Sign(claims Claims, secret []byte) string {
+	body, _ := json.Marshal(signPayload{
+		Sub:  claims.Sub,
+		Name: claims.Name,
+		Exp:  claims.Exp.Unix(),
+	})
+	signed := base64.RawURLEncoding.EncodeToString([]byte(signHeader)) + "." +
+		base64.RawURLEncoding.EncodeToString(body)
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(signed))
+	return signed + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}

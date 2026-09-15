@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -44,21 +45,22 @@ const shutdownGrace = 2 * time.Second
 func main() {
 	configPath := flag.String("config", "james.yaml", "path of the configuration file")
 	printVersion := flag.Bool("version", false, "print the version and exit")
+	dev := flag.Bool("dev", false, "serve the demo host page at <base_path>/demo")
 	flag.Parse()
 
 	if *printVersion {
 		fmt.Println(version)
 		return
 	}
-	if err := run(*configPath); err != nil {
+	if err := run(*configPath, *dev); err != nil {
 		fmt.Fprintln(os.Stderr, "james:", err)
 		os.Exit(1)
 	}
 }
 
 // run loads the configuration, builds the agent and serves until a signal
-// asks it to stop.
-func run(configPath string) error {
+// asks it to stop. In development mode the demo host page is served as well.
+func run(configPath string, dev bool) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
@@ -96,7 +98,7 @@ func run(configPath string) error {
 		MaxTokens:    cfg.LLM.MaxTokens,
 	}
 
-	handler, err := server.New(cfg, ag, logger)
+	handler, err := server.New(cfg, ag, logger, dev)
 	if err != nil {
 		return err
 	}
@@ -125,6 +127,10 @@ func run(configPath string) error {
 		"version", version,
 		"tools", toolNames(toolset),
 	)
+	if dev {
+		logger.Warn("development mode: the demo page hands out signed tokens",
+			"path", strings.TrimSuffix(cfg.Server.BasePath, "/")+"/demo")
+	}
 
 	failed := make(chan error, 1)
 	go func() {
